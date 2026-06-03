@@ -52,7 +52,7 @@ class AppTheme {
           borderSide: const BorderSide(color: AppColors.navy, width: 2),
         ),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: AppColors.surface,
         elevation: 2,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),

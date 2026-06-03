@@ -19,13 +19,13 @@ Cette version Flutter reproduit toutes les fonctionnalités de la démo web.
 ### Prérequis
 - Flutter SDK 3.19+
 - Android Studio ou VS Code
-- Un émulateur Android/iOS ou un appareil physique
+- Un émulateur Android/iOS ou un navigateur
 
 ### Étapes
 
 ```bash
 # 1. Aller dans le dossier
-cd busguard_flutter
+cd busguard
 
 # 2. Installer les dépendances
 flutter pub get
