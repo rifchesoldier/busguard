@@ -15,8 +15,9 @@ import 'screens/children_screen.dart';
 import 'screens/alerts_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/home_shell.dart';
-import 'dart:ui_web' as ui;
-import 'dart:html' as html;
+
+// NOTE: Plus besoin de dart:ui_web ni dart:html
+// L'iframe OpenStreetMap a été remplacé par google_maps_flutter dans dashboard_screen.dart
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,14 +28,6 @@ Future<void> main() async {
   );
 
   await NotificationService.instance.init();
-  ui.platformViewRegistry.registerViewFactory('openstreetmap-html', (int viewId, {String? src}) {
-    final element = html.IFrameElement()
-      ..src = src ?? 'https://www.openstreetmap.org/export/embed.html?bbox=-17.5303%2C14.6534%2C-17.3754%2C14.7936&layer=mapnik'
-      ..style.border = 'none'
-      ..style.width = '100%'
-      ..style.height = '100%';
-    return element;
-  });
 
   runApp(
     ChangeNotifierProvider(
