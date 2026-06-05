@@ -1,78 +1,96 @@
-# 🚌 BusGuard — Application Flutter
+# BusGuard v2.0
 
-Application mobile de suivi de bus scolaire en temps réel.
-Cette version Flutter reproduit toutes les fonctionnalités de la démo web.
+Application de suivi de transport scolaire en temps réel pour Dakar — parents, chauffeurs et administrateurs.
 
-## 📋 Fonctionnalités
+## Architecture
 
-- ✅ Authentification (inscription / connexion / déconnexion)
-- ✅ Tableau de bord avec statistiques
-- ✅ Carte Google Maps avec position des bus en direct
-- ✅ Gestion des enfants (ajout / suppression / liste)
-- ✅ Système d'alertes (pickup / dropoff / retard)
-- ✅ Profil utilisateur modifiable
-- ✅ Notifications locales
-- ✅ Connexion au même backend Lovable Cloud (Supabase) que la version web
+| Composant | Technologie |
+|-----------|-------------|
+| Mobile (Parent + Chauffeur) | Flutter / Dart |
+| Temps réel & Auth | Firebase (Firestore, Auth, FCM) |
+| API relationnelle | Laravel 11 + SQLite/MySQL |
+| Admin Web | Laravel Blade + Tailwind |
+| Cartographie | flutter_map (OpenStreetMap) |
+| ETA | Google Maps Distance Matrix API |
 
-## 🚀 Installation
+## Structure du projet
 
-### Prérequis
-- Flutter SDK 3.19+
-- Android Studio ou VS Code
-- Un émulateur Android/iOS ou un navigateur
+```
+busguard/
+├── lib/                 # Application Flutter
+├── backend/             # API Laravel 11 + Admin Web
+├── firebase/            # Règles Firestore
+└── assets/
+```
 
-### Étapes
+## Démarrage rapide
+
+### Backend Laravel
 
 ```bash
-# 1. Aller dans le dossier
-cd busguard
+cd backend
+composer install
+php artisan migrate --seed
+php artisan serve
+```
 
-# 2. Installer les dépendances
+Admin web : http://localhost:8000/admin/login
+
+**Comptes démo :**
+| Rôle | Email | Mot de passe |
+|------|-------|--------------|
+| Super Admin | admin@busguard.sn | BusGuard2024! |
+| Admin École | ecole@busguard.sn | BusGuard2024! |
+| Chauffeur | chauffeur@busguard.sn | BusGuard2024! |
+| Parent | parent@busguard.sn | BusGuard2024! |
+
+### Application Flutter
+
+```bash
 flutter pub get
-
-# 3. Lancer l'application
-flutter run
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000/api/v1
 ```
 
-## 🗺️ Configuration Google Maps
+> Sur appareil physique, remplacez `10.0.2.2` par l'IP de votre machine.
 
-Pour que la carte fonctionne, ajoutez votre clé Google Maps API :
+### Firebase (production)
 
-### Android
-`android/app/src/main/AndroidManifest.xml` — dans `<application>` :
-```xml
-<meta-data
-    android:name="com.google.android.geo.API_KEY"
-    android:value="VOTRE_CLE_GOOGLE_MAPS"/>
+1. Créez un projet Firebase Console
+2. Exécutez `flutterfire configure`
+3. Déployez les règles : `firebase deploy --only firestore:rules`
+4. Ajoutez `google-services.json` (Android) et `GoogleService-Info.plist` (iOS)
+
+Sans Firebase, l'app fonctionne en **mode démo** avec simulation GPS.
+
+### Variables d'environnement backend (.env)
+
+```env
+GOOGLE_MAPS_API_KEY=your_key
+FCM_SERVER_KEY=your_fcm_server_key
 ```
 
-### iOS
-`ios/Runner/AppDelegate.swift` :
-```swift
-import GoogleMaps
-GMSServices.provideAPIKey("VOTRE_CLE_GOOGLE_MAPS")
-```
+## Fonctionnalités
 
-## 📂 Structure
+### Parent
+- Carte temps réel avec bus, tracé et ETA
+- États : non démarré, absent, à bord, arrivé, alerte trafic
+- Notifications push (FCM)
+- Mode hors-ligne avec cache Firestore
+- Consentement RGPD à l'inscription
 
-```
-lib/
-├── main.dart                 # Point d'entrée
-├── models/                   # Profile, Child, Bus, Alert
-├── services/                 # auth, supabase, location, notifications
-├── screens/                  # splash, auth/, dashboard, map, children, alerts, profile
-├── widgets/                  # logo, stat_card, bus_card, child_card
-└── utils/                    # constants, theme
-```
+### Chauffeur
+- Sélection véhicule et type de tournée (matin/soir)
+- GPS arrière-plan (mise à jour 3s)
+- Feuille de présence par arrêt
+- Signalement incidents (embouteillage, accident, panne)
+- File d'attente hors-ligne pour les présences
 
-## 🔐 Backend
+### Administrateur (Web)
+- Gestion écoles, bus, itinéraires, arrêts, élèves, chauffeurs
+- Historique des présences + export CSV
+- Authentification 2FA
+- Dashboard temps réel
 
-L'app se connecte automatiquement au backend Lovable Cloud existant
-(voir `lib/utils/constants.dart`). Les tables utilisées :
-- `profiles`, `children`, `buses`, `alerts`
+## Licence
 
-## 🎨 Design
-
-- Couleur principale : **Navy `#1E2761`**
-- Couleur accent : **Yellow `#FFC107`**
-- Material 3
+Projet BusGuard — Transport scolaire sécurisé, Dakar Sénégal.

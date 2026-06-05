@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isParentOf(studentId) {
+      return isAuthenticated() &&
+        studentId in userDoc().linked_student_ids;
+    }
+
+    function isDriverOf(busId) {
+      return isAuthenticated() &&
+        userDoc().role == 'driver' &&
+        userDoc().assigned_bus_id == busId;
+    }
+
+    match /schools/{schoolId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    match /buses/{busId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && isDriverOf(busId);
+    }
+
+    match /students/{studentId} {
+      allow read: if isAuthenticated() && (
+        isParentOf(studentId) ||
+        userDoc().role == 'driver' ||
+        userDoc().role in ['admin', 'superadmin']
+      );
+      allow write: if isAuthenticated() && userDoc().role == 'driver';
+    }
+
+    match /routes/{routeId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    match /attendance_logs/{logId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && userDoc().role == 'driver';
+    }
+
+    match /users/{userId} {
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+    }
+  }
+}

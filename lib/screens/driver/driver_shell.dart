@@ -1,0 +1,52 @@
+import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../../core/theme.dart';
+import 'tour_screen.dart';
+import 'attendance_screen.dart';
+import 'incident_screen.dart';
+
+class DriverShell extends StatefulWidget {
+  const DriverShell({super.key});
+
+  @override
+  State<DriverShell> createState() => _DriverShellState();
+}
+
+class _DriverShellState extends State<DriverShell> {
+  int _index = 0;
+
+  final _screens = const [
+    DriverTourScreen(),
+    DriverAttendanceScreen(),
+    DriverIncidentScreen(),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: IndexedStack(index: _index, children: _screens),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: BgColors.ink,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        ),
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          child: BottomNavigationBar(
+            backgroundColor: BgColors.ink,
+            selectedItemColor: BgColors.gold,
+            unselectedItemColor: Colors.white54,
+            currentIndex: _index,
+            onTap: (i) => setState(() => _index = i),
+            selectedLabelStyle: GoogleFonts.dmSans(fontWeight: FontWeight.w700, fontSize: 12),
+            items: const [
+              BottomNavigationBarItem(icon: Icon(Icons.play_circle_fill_rounded, size: 28), label: 'Tournée'),
+              BottomNavigationBarItem(icon: Icon(Icons.fact_check_rounded, size: 28), label: 'Présences'),
+              BottomNavigationBarItem(icon: Icon(Icons.warning_amber_rounded, size: 28), label: 'Incidents'),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
