@@ -9,6 +9,46 @@ use Illuminate\Support\Facades\Http;
 
 class EtaController extends Controller
 {
+    public function directions(Bus $bus): JsonResponse
+    {
+        if (! $bus->last_lat || ! $bus->last_lng) {
+            return response()->json(['error' => 'Position GPS indisponible.'], 422);
+        }
+
+        $school = $bus->school;
+        if (! $school?->lat || ! $school?->lng) {
+            return response()->json(['error' => 'Destination non configurée.'], 422);
+        }
+
+        $apiKey = config('services.google_maps.key');
+
+        if (! $apiKey) {
+            return response()->json(['error' => 'Clé API non configurée.'], 500);
+        }
+
+        $response = Http::get('https://maps.googleapis.com/maps/api/directions/json', [
+            'origin'      => "{$bus->last_lat},{$bus->last_lng}",
+            'destination' => "{$school->lat},{$school->lng}",
+            'mode'        => 'driving',
+            'language'    => 'fr',
+            'key'         => $apiKey,
+        ]);
+
+        $data = $response->json();
+
+        if (($data['status'] ?? '') !== 'OK') {
+            return response()->json(['error' => $data['status'] ?? 'Directions non disponibles.'], 422);
+        }
+
+        // On retourne uniquement la polyline encodée (légère)
+        $overviewPolyline = $data['routes'][0]['overview_polyline']['points'] ?? null;
+
+        return response()->json([
+            'polyline' => $overviewPolyline,
+            'summary'  => $data['routes'][0]['summary'] ?? null,
+        ]);
+    }
+
     public function calculate(Bus $bus): JsonResponse
     {
         if (! $bus->last_lat || ! $bus->last_lng) {

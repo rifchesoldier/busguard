@@ -37,6 +37,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/attendance/history/{student}', [AttendanceController::class, 'studentHistory']);
 
         Route::get('/eta/{bus}', [EtaController::class, 'calculate']);
+        Route::get('/directions/{bus}', [EtaController::class, 'directions']);
         Route::post('/notifications/traffic', [NotificationController::class, 'trafficAlert']);
         Route::post('/notifications/attendance', [NotificationController::class, 'attendanceAlert']);
     });

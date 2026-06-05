@@ -32,15 +32,33 @@ class StudentController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        abort_unless($request->user()->isAdmin(), 403);
+        $user = $request->user();
+
+        // Un parent peut inscrire son propre enfant
+        if ($user->role === 'parent') {
+            $data = $request->validate([
+                'first_name' => 'required|string',
+                'last_name'  => 'required|string',
+                'school_id'  => 'required|exists:schools,id',
+                'class_name' => 'nullable|string',
+            ]);
+            $student = Student::create([
+                ...$data,
+                'parent_id'      => $user->id,
+                'current_status' => 'en_attente',
+            ]);
+            return response()->json($student, 201);
+        }
+
+        abort_unless($user->isAdmin(), 403);
 
         $data = $request->validate([
             'first_name' => 'required|string',
-            'last_name' => 'required|string',
-            'school_id' => 'required|exists:schools,id',
-            'class_id' => 'nullable|exists:school_classes,id',
+            'last_name'  => 'required|string',
+            'school_id'  => 'required|exists:schools,id',
+            'class_id'   => 'nullable|exists:school_classes,id',
             'class_name' => 'nullable|string',
-            'parent_id' => 'nullable|exists:users,id',
+            'parent_id'  => 'nullable|exists:users,id',
         ]);
 
         $student = Student::create($data);

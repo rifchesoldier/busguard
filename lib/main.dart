@@ -8,6 +8,7 @@ import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
 import 'screens/parent/parent_shell.dart';
 import 'screens/driver/driver_shell.dart';
+import 'screens/admin/admin_shell.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,6 +38,7 @@ class BusGuardApp extends StatelessWidget {
         '/register': (_) => const RegisterScreen(),
         '/parent': (_) => const ParentShell(),
         '/driver': (_) => const DriverShell(),
+        '/admin': (_) => const AdminShell(),
       },
     );
   }

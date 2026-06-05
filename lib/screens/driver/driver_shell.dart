@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '../../core/theme.dart';
+import '../../services/auth_service.dart';
 import 'tour_screen.dart';
 import 'attendance_screen.dart';
 import 'incident_screen.dart';
@@ -21,9 +23,53 @@ class _DriverShellState extends State<DriverShell> {
     DriverIncidentScreen(),
   ];
 
+  void _confirmLogout(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Déconnexion', style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
+        content: Text('Voulez-vous vous déconnecter ?', style: GoogleFonts.dmSans()),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await context.read<AuthService>().logout();
+              if (context.mounted) Navigator.pushReplacementNamed(context, '/login');
+            },
+            child: Text('Déconnecter', style: TextStyle(color: BgColors.danger)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final user = context.watch<AuthService>().user;
+
     return Scaffold(
+      appBar: AppBar(
+        backgroundColor: BgColors.ink,
+        elevation: 0,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('BusGuard', style: GoogleFonts.outfit(color: BgColors.gold, fontWeight: FontWeight.w800, fontSize: 18)),
+            Text(user?.name ?? 'Chauffeur', style: GoogleFonts.dmSans(color: Colors.white60, fontSize: 12)),
+          ],
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout_rounded, color: Colors.white70),
+            tooltip: 'Déconnexion',
+            onPressed: () => _confirmLogout(context),
+          ),
+        ],
+      ),
       body: IndexedStack(index: _index, children: _screens),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(

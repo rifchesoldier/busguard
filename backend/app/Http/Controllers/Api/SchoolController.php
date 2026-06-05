@@ -11,13 +11,22 @@ class SchoolController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = School::with(['admin', 'classes', 'buses']);
+        $user = $request->user();
+        $query = School::query()->where('is_active', true);
 
-        if ($request->user()->role === 'admin') {
-            $query->where('id', $request->user()->school_id);
+        // L'admin école ne voit que son école
+        if ($user->role === 'admin') {
+            $query->where('id', $user->school_id);
         }
 
-        return response()->json($query->get());
+        // Les parents et chauffeurs voient juste nom + classes (pas besoin du reste)
+        if (in_array($user->role, ['parent', 'driver'])) {
+            return response()->json(
+                $query->select('id', 'name', 'city', 'available_classes')->get()
+            );
+        }
+
+        return response()->json($query->with(['admin', 'classes', 'buses'])->get());
     }
 
     public function store(Request $request): JsonResponse

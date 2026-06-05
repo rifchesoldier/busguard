@@ -22,7 +22,12 @@ class _LoginScreenState extends State<LoginScreen> {
     final ok = await auth.login(_email.text.trim(), _password.text);
     if (!mounted) return;
     if (ok) {
-      final route = auth.user!.isDriver ? '/driver' : '/parent';
+      final role = auth.user!.role.name;
+      final route = switch (role) {
+        'driver' => '/driver',
+        'admin' || 'superadmin' => '/admin',
+        _ => '/parent',
+      };
       Navigator.pushReplacementNamed(context, route);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -36,34 +41,33 @@ class _LoginScreenState extends State<LoginScreen> {
     final auth = context.watch<AuthService>();
 
     return Scaffold(
-      body: Stack(
+      body: Column(
         children: [
+          // ── Zone gradient (en-tête) ──────────────────────────────────
           Container(
-            height: MediaQuery.of(context).size.height * 0.42,
+            width: double.infinity,
             decoration: BgTheme.heroGradient,
             child: SafeArea(
+              bottom: false,
               child: Padding(
-                padding: const EdgeInsets.all(28),
+                padding: const EdgeInsets.fromLTRB(28, 28, 28, 40),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const BgLogo(size: 56, light: true),
-                    const Spacer(),
+                    const SizedBox(height: 32),
                     Text('Bon retour !', style: GoogleFonts.outfit(fontSize: 34, fontWeight: FontWeight.w800, color: Colors.white)),
                     const SizedBox(height: 8),
                     Text('Suivez le bus de votre enfant en direct', style: GoogleFonts.dmSans(color: Colors.white70, fontSize: 15)),
-                    const SizedBox(height: 24),
                   ],
                 ),
               ),
             ),
           ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            top: MediaQuery.of(context).size.height * 0.34,
+          // ── Carte blanche (formulaire) ───────────────────────────────
+          Expanded(
             child: Container(
+              width: double.infinity,
               decoration: const BoxDecoration(
                 color: BgColors.cream,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(36)),
@@ -121,3 +125,4 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 }
+
