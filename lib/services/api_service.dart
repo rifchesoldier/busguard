@@ -120,12 +120,15 @@ class ApiService {
   Future<StudentModel> assignStudentToBus({
     required String studentId,
     required String busId,
-    required String stopId,
+    String? stopId,
   }) async {
     final res = await http.post(
       Uri.parse('${AppConstants.apiBaseUrl}/students/$studentId/assign-bus'),
       headers: _headers,
-      body: jsonEncode({'assigned_bus_id': busId, 'assigned_stop_id': stopId}),
+      body: jsonEncode({
+        'assigned_bus_id': busId,
+        if (stopId != null) 'assigned_stop_id': stopId,
+      }),
     );
     _throwIfError(res);
     return StudentModel.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
@@ -159,6 +162,48 @@ class ApiService {
     return list.map((e) => BusModel.fromJson(e as Map<String, dynamic>)).toList();
   }
 
+  Future<List<Map<String, dynamic>>> getRoutesForBus(String busId) async {
+    final res = await http.get(
+      Uri.parse('${AppConstants.apiBaseUrl}/buses/$busId'),
+      headers: _headers,
+    );
+    _throwIfError(res);
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    final routes = data['routes'] as List? ?? [];
+    return routes.cast<Map<String, dynamic>>();
+  }
+
+  Future<void> deleteRoute(String routeId) async {
+    final res = await http.delete(
+      Uri.parse('${AppConstants.apiBaseUrl}/routes/$routeId'),
+      headers: _headers,
+    );
+    _throwIfError(res);
+  }
+
+  Future<void> createRoute({
+    required String busId,
+    required String schoolId,
+    required String name,
+    required String direction,
+    String? scheduledStart,
+    required List<Map<String, dynamic>> stops,
+  }) async {
+    final res = await http.post(
+      Uri.parse('${AppConstants.apiBaseUrl}/routes'),
+      headers: _headers,
+      body: jsonEncode({
+        'bus_id': busId,
+        'school_id': schoolId,
+        'name': name,
+        'direction': direction,
+        if (scheduledStart != null) 'scheduled_start': scheduledStart,
+        'stops': stops,
+      }),
+    );
+    _throwIfError(res);
+  }
+
   Future<BusModel> createBus({
     required String schoolId,
     required String matricule,
@@ -187,6 +232,25 @@ class ApiService {
       headers: _headers,
     );
     _throwIfError(res);
+  }
+
+  Future<BusModel> updateBus({
+    required String busId,
+    String? model,
+    int? capacity,
+    String? driverId,
+  }) async {
+    final res = await http.put(
+      Uri.parse('${AppConstants.apiBaseUrl}/buses/$busId'),
+      headers: _headers,
+      body: jsonEncode({
+        if (model != null) 'model': model,
+        if (capacity != null) 'capacity': capacity,
+        'driver_id': driverId,
+      }),
+    );
+    _throwIfError(res);
+    return BusModel.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
   }
 
   // ── Schools ───────────────────────────────────────────────────────────────
@@ -277,6 +341,15 @@ class ApiService {
   }
 
   // ── Misc ──────────────────────────────────────────────────────────────────
+
+  Future<Map<String, dynamic>> getStats() async {
+    final res = await http.get(
+      Uri.parse('${AppConstants.apiBaseUrl}/stats'),
+      headers: _headers,
+    );
+    _throwIfError(res);
+    return jsonDecode(res.body) as Map<String, dynamic>;
+  }
 
   Future<int?> fetchEta(String busId) async {
     final res = await http.get(

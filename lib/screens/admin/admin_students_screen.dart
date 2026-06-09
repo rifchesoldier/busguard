@@ -36,6 +36,12 @@ class _AdminStudentsScreenState extends State<AdminStudentsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: BgColors.cream,
+      appBar: AppBar(
+        title: const Text('Gestion des élèves'),
+        backgroundColor: BgColors.ink,
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
@@ -392,6 +398,8 @@ class _AssignBusFormState extends State<_AssignBusForm> {
   String? _selectedBusId;
   String? _selectedStopId;
   bool _saving = false;
+  bool _loadingBuses = true;
+  bool _loadingStops = false;
 
   @override
   void initState() {
@@ -400,23 +408,30 @@ class _AssignBusFormState extends State<_AssignBusForm> {
   }
 
   Future<void> _loadBuses() async {
+    setState(() => _loadingBuses = true);
     try {
       final buses = await context.read<AuthService>().api.myBuses();
-      if (mounted) setState(() => _buses = buses);
-    } catch (_) {}
+      if (mounted) setState(() { _buses = buses; _loadingBuses = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loadingBuses = false);
+    }
   }
 
   Future<void> _loadStops(String busId) async {
-    setState(() { _stops = []; _selectedStopId = null; });
+    setState(() { _loadingStops = true; _stops = []; _selectedStopId = null; });
     try {
       final stops = await context.read<AuthService>().api.getStopsForBus(busId);
-      if (mounted) setState(() => _stops = stops);
-    } catch (_) {}
+      if (mounted) setState(() { _stops = stops; _loadingStops = false; });
+    } catch (_) {
+      if (mounted) setState(() => _loadingStops = false);
+    }
   }
 
   Future<void> _save() async {
-    if (_selectedBusId == null || _selectedStopId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sélectionnez un bus et un arrêt')));
+    if (_selectedBusId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sélectionnez un bus')),
+      );
       return;
     }
     setState(() => _saving = true);
@@ -424,11 +439,17 @@ class _AssignBusFormState extends State<_AssignBusForm> {
       await context.read<AuthService>().api.assignStudentToBus(
             studentId: widget.student.id,
             busId: _selectedBusId!,
-            stopId: _selectedStopId!,
+            stopId: _selectedStopId, // optionnel
           );
       if (mounted) {
         Navigator.pop(context);
         widget.onSaved();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${widget.student.fullName} affecté(e) au bus avec succès.'),
+            backgroundColor: BgColors.success,
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -445,51 +466,96 @@ class _AssignBusFormState extends State<_AssignBusForm> {
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 24),
-      decoration: const BoxDecoration(color: BgColors.cream, borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
+      decoration: const BoxDecoration(
+        color: BgColors.cream,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: BgColors.dusk.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(2)))),
+          // Handle
+          Center(child: Container(width: 40, height: 4,
+              decoration: BoxDecoration(color: BgColors.dusk.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(2)))),
           const SizedBox(height: 20),
+
           Text('Affecter un bus', style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w800)),
-          Text('Élève : ${widget.student.fullName}', style: GoogleFonts.dmSans(color: BgColors.dusk.withValues(alpha: 0.7))),
+          Text('Élève : ${widget.student.fullName}',
+              style: GoogleFonts.dmSans(color: BgColors.dusk.withValues(alpha: 0.7))),
           const SizedBox(height: 20),
-          if (_buses.isNotEmpty)
+
+          // Dropdown bus
+          if (_loadingBuses)
+            const Center(child: CircularProgressIndicator())
+          else if (_buses.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: BgColors.gold.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
+              child: Text('Aucun bus disponible. Enregistrez un bus d\'abord.',
+                  style: GoogleFonts.dmSans(color: BgColors.dusk)),
+            )
+          else
             DropdownButtonFormField<String>(
               value: _selectedBusId,
-              decoration: const InputDecoration(labelText: 'Bus *', prefixIcon: Icon(Icons.directions_bus_rounded)),
+              isExpanded: true, // ← corrige l'overflow
+              decoration: const InputDecoration(
+                labelText: 'Bus *',
+                prefixIcon: Icon(Icons.directions_bus_rounded),
+              ),
               items: _buses.map((b) => DropdownMenuItem(
                 value: b.id,
-                child: Text('${b.matricule} · ${b.model ?? ''} (${b.capacity} places)'),
+                child: Text(
+                  '${b.matricule}${b.model != null ? ' · ${b.model}' : ''} (${b.capacity} places)',
+                  overflow: TextOverflow.ellipsis,
+                ),
               )).toList(),
               onChanged: (v) {
                 setState(() => _selectedBusId = v);
                 if (v != null) _loadStops(v);
               },
-            )
-          else
-            const Center(child: Text('Aucun bus disponible')),
-          const SizedBox(height: 14),
-          if (_stops.isNotEmpty)
-            DropdownButtonFormField<String>(
-              value: _selectedStopId,
-              decoration: const InputDecoration(labelText: 'Arrêt de prise en charge *', prefixIcon: Icon(Icons.location_on_rounded)),
-              items: _stops.map((s) => DropdownMenuItem(
-                value: s['id'].toString(),
-                child: Text(s['name'] as String? ?? 'Arrêt'),
-              )).toList(),
-              onChanged: (v) => setState(() => _selectedStopId = v),
-            )
-          else if (_selectedBusId != null)
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(color: BgColors.gold.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12)),
-              child: Text('Aucun arrêt configuré pour ce bus.', style: GoogleFonts.dmSans(color: BgColors.dusk)),
             ),
+
+          const SizedBox(height: 14),
+
+          // Dropdown arrêt (optionnel)
+          if (_selectedBusId != null) ...[
+            if (_loadingStops)
+              const Center(child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: CircularProgressIndicator(),
+              ))
+            else if (_stops.isNotEmpty)
+              DropdownButtonFormField<String>(
+                value: _selectedStopId,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Arrêt de prise en charge (optionnel)',
+                  prefixIcon: Icon(Icons.location_on_rounded),
+                ),
+                items: [
+                  const DropdownMenuItem(value: null, child: Text('— Sans arrêt spécifique —')),
+                  ..._stops.map((s) => DropdownMenuItem(
+                    value: s['id'].toString(),
+                    child: Text(s['name'] as String? ?? 'Arrêt', overflow: TextOverflow.ellipsis),
+                  )),
+                ],
+                onChanged: (v) => setState(() => _selectedStopId = v),
+              )
+            else
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: BgColors.dusk.withValues(alpha: 0.05),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text('Aucun arrêt configuré pour ce bus — vous pourrez en ajouter plus tard.',
+                    style: GoogleFonts.dmSans(fontSize: 12, color: BgColors.dusk.withValues(alpha: 0.6))),
+              ),
+          ],
+
           const SizedBox(height: 28),
           ElevatedButton(
-            onPressed: _saving ? null : _save,
+            onPressed: (_saving || _selectedBusId == null) ? null : _save,
             style: ElevatedButton.styleFrom(backgroundColor: BgColors.terracotta),
             child: _saving
                 ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))

@@ -9,8 +9,29 @@ import 'admin_drivers_screen.dart';
 import 'admin_schools_screen.dart';
 import 'admin_students_screen.dart';
 
-class AdminShell extends StatelessWidget {
+class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
+  @override
+  State<AdminShell> createState() => _AdminShellState();
+}
+
+class _AdminShellState extends State<AdminShell> {
+  Map<String, dynamic>? _stats;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    try {
+      final stats = await context.read<AuthService>().api.getStats();
+      if (mounted) setState(() => _stats = stats);
+    } catch (_) {}
+  }
+
+  String _val(String key) => _stats?[key]?.toString() ?? '—';
 
   @override
   Widget build(BuildContext context) {
@@ -86,57 +107,42 @@ class AdminShell extends StatelessWidget {
             ),
           ),
 
-          // ── Tableau de bord ───────────────────────────────────────────
+          // ── Corps ─────────────────────────────────────────────────────
           SliverPadding(
             padding: const EdgeInsets.all(20),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
+
                 Text('Tableau de bord',
-                    style: GoogleFonts.outfit(
-                        fontSize: 20, fontWeight: FontWeight.w800, color: BgColors.ink)),
+                    style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w800, color: BgColors.ink)),
                 const SizedBox(height: 16),
 
-                // Cartes stats
+                // Ligne 1 : Bus + Élèves
                 Row(children: [
-                  Expanded(
-                    child: _StatCard(
-                      icon: Icons.directions_bus_rounded,
-                      label: 'Bus',
-                      color: BgColors.terracotta,
-                    ),
-                  ),
+                  Expanded(child: _StatCard(icon: Icons.directions_bus_rounded, label: 'Bus', value: _val('buses'), color: BgColors.terracotta)),
                   const SizedBox(width: 12),
-                  Expanded(
-                    child: _StatCard(
-                      icon: Icons.child_care_rounded,
-                      label: 'Élèves',
-                      color: BgColors.sage,
-                    ),
-                  ),
+                  Expanded(child: _StatCard(icon: Icons.child_care_rounded, label: 'Élèves', value: _val('students_total'), color: BgColors.sage)),
                 ]),
                 const SizedBox(height: 12),
+
+                // Ligne 2 : Parents + Chauffeurs
                 Row(children: [
-                  Expanded(
-                    child: _StatCard(
-                      icon: Icons.people_rounded,
-                      label: 'Parents',
-                      color: BgColors.dusk,
-                    ),
-                  ),
+                  Expanded(child: _StatCard(icon: Icons.people_rounded, label: 'Parents', value: _val('parents'), color: BgColors.dusk)),
                   const SizedBox(width: 12),
-                  Expanded(
-                    child: _StatCard(
-                      icon: Icons.person_pin_rounded,
-                      label: 'Chauffeurs',
-                      color: BgColors.gold,
-                    ),
-                  ),
+                  Expanded(child: _StatCard(icon: Icons.person_pin_rounded, label: 'Chauffeurs', value: _val('drivers'), color: BgColors.gold)),
+                ]),
+                const SizedBox(height: 12),
+
+                // Ligne 3 : Élèves attribués + sans bus
+                Row(children: [
+                  Expanded(child: _StatCard(icon: Icons.check_circle_rounded, label: 'Attribués', value: _val('students_assigned'), color: BgColors.success)),
+                  const SizedBox(width: 12),
+                  Expanded(child: _StatCard(icon: Icons.warning_amber_rounded, label: 'Sans bus', value: _val('students_unassigned'), color: BgColors.gold)),
                 ]),
 
                 const SizedBox(height: 28),
                 Text('Actions',
-                    style: GoogleFonts.outfit(
-                        fontSize: 20, fontWeight: FontWeight.w800, color: BgColors.ink)),
+                    style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w800, color: BgColors.ink)),
                 const SizedBox(height: 14),
 
                 _AdminAction(
@@ -144,30 +150,30 @@ class AdminShell extends StatelessWidget {
                   title: 'Gestion des bus',
                   subtitle: 'Ajouter, modifier ou supprimer des bus',
                   color: BgColors.terracotta,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const AdminBusesScreen()),
-                  ),
+                  onTap: () async {
+                    await Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminBusesScreen()));
+                    _loadStats();
+                  },
                 ),
                 _AdminAction(
                   icon: Icons.child_care_rounded,
                   title: 'Gestion des élèves',
                   subtitle: 'Affecter les élèves à un bus',
                   color: BgColors.sage,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const AdminStudentsScreen()),
-                  ),
+                  onTap: () async {
+                    await Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminStudentsScreen()));
+                    _loadStats();
+                  },
                 ),
                 _AdminAction(
                   icon: Icons.person_pin_rounded,
                   title: 'Gestion des chauffeurs',
                   subtitle: 'Créer les comptes et identifiants chauffeurs',
                   color: BgColors.gold,
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const AdminDriversScreen()),
-                  ),
+                  onTap: () async {
+                    await Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminDriversScreen()));
+                    _loadStats();
+                  },
                 ),
                 if (isSuperAdmin)
                   _AdminAction(
@@ -175,37 +181,18 @@ class AdminShell extends StatelessWidget {
                     title: 'Gestion des écoles',
                     subtitle: 'Administrer toutes les écoles',
                     color: const Color(0xFF2D4A7A),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const AdminSchoolsScreen()),
-                    ),
+                    onTap: () async {
+                      await Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminSchoolsScreen()));
+                      _loadStats();
+                    },
                   ),
 
-                const SizedBox(height: 28),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    onPressed: () => _confirmLogout(context, auth),
-                    icon: const Icon(Icons.logout_rounded, color: BgColors.terracotta),
-                    label: Text('Déconnexion',
-                        style: GoogleFonts.outfit(
-                            fontWeight: FontWeight.w700, color: BgColors.terracotta)),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      side: const BorderSide(color: BgColors.terracotta),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(18)),
-                    ),
-                  ),
-                ),
                 const SizedBox(height: 32),
                 const Center(child: BgLogo(size: 36)),
                 const SizedBox(height: 8),
                 Center(
                   child: Text('BusGuard v2.0 — Administration',
-                      style: GoogleFonts.dmSans(
-                          fontSize: 12,
-                          color: BgColors.dusk.withValues(alpha: 0.5))),
+                      style: GoogleFonts.dmSans(fontSize: 12, color: BgColors.dusk.withValues(alpha: 0.5))),
                 ),
                 const SizedBox(height: 16),
               ]),
@@ -220,24 +207,17 @@ class AdminShell extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Déconnexion',
-            style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
-        content: Text('Voulez-vous vous déconnecter ?',
-            style: GoogleFonts.dmSans()),
+        title: Text('Déconnexion', style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
+        content: Text('Voulez-vous vous déconnecter ?', style: GoogleFonts.dmSans()),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('Annuler')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
           TextButton(
             onPressed: () async {
               Navigator.pop(ctx);
               await auth.logout();
-              if (context.mounted) {
-                Navigator.pushReplacementNamed(context, '/login');
-              }
+              if (context.mounted) Navigator.pushReplacementNamed(context, '/login');
             },
-            child: const Text('Déconnecter',
-                style: TextStyle(color: BgColors.danger)),
+            child: const Text('Déconnecter', style: TextStyle(color: BgColors.danger)),
           ),
         ],
       ),
@@ -250,9 +230,10 @@ class AdminShell extends StatelessWidget {
 class _StatCard extends StatelessWidget {
   final IconData icon;
   final String label;
+  final String value;
   final Color color;
 
-  const _StatCard({required this.icon, required this.label, required this.color});
+  const _StatCard({required this.icon, required this.label, required this.value, required this.color});
 
   @override
   Widget build(BuildContext context) {
@@ -270,15 +251,10 @@ class _StatCard extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('—',
-                  style: GoogleFonts.outfit(
-                      fontSize: 20,
-                      fontWeight: FontWeight.w800,
-                      color: BgColors.ink)),
+              Text(value,
+                  style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w800, color: BgColors.ink)),
               Text(label,
-                  style: GoogleFonts.dmSans(
-                      fontSize: 12,
-                      color: BgColors.dusk.withValues(alpha: 0.7))),
+                  style: GoogleFonts.dmSans(fontSize: 12, color: BgColors.dusk.withValues(alpha: 0.7))),
             ],
           ),
         ],
@@ -314,13 +290,9 @@ class _AdminAction extends StatelessWidget {
           backgroundColor: color.withValues(alpha: 0.15),
           child: Icon(icon, color: color, size: 22),
         ),
-        title: Text(title,
-            style: GoogleFonts.outfit(
-                fontWeight: FontWeight.w700, fontSize: 15)),
+        title: Text(title, style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 15)),
         subtitle: Text(subtitle,
-            style: GoogleFonts.dmSans(
-                fontSize: 12,
-                color: BgColors.dusk.withValues(alpha: 0.6))),
+            style: GoogleFonts.dmSans(fontSize: 12, color: BgColors.dusk.withValues(alpha: 0.6))),
         trailing: Icon(Icons.chevron_right_rounded, color: color),
       ),
     );

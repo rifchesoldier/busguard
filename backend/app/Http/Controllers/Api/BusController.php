@@ -11,13 +11,17 @@ class BusController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Bus::with(['driver', 'school', 'routes.stops']);
+        $user = $request->user();
+        $query = Bus::with(['driver'])->where(function($q) {
+            $q->where('is_active', true)->orWhereNull('is_active');
+        });
 
-        if ($request->user()->role === 'admin') {
-            $query->where('school_id', $request->user()->school_id);
-        } elseif ($request->user()->role === 'driver') {
-            $query->whereHas('drivers', fn ($q) => $q->where('driver_id', $request->user()->id));
+        if ($user->role === 'admin') {
+            $query->where('school_id', $user->school_id);
+        } elseif ($user->role === 'driver') {
+            $query->whereHas('drivers', fn ($q) => $q->where('user_id', $user->id));
         }
+        // superadmin → tous les bus
 
         return response()->json($query->get());
     }
@@ -34,7 +38,7 @@ class BusController extends Controller
             'driver_id' => 'nullable|exists:users,id',
         ]);
 
-        $bus = Bus::create($data);
+        $bus = Bus::create(array_merge($data, ['is_active' => true]));
 
         if (! empty($data['driver_id'])) {
             $bus->drivers()->attach($data['driver_id']);
@@ -58,6 +62,8 @@ class BusController extends Controller
             'last_lng' => 'sometimes|numeric',
             'traffic_alert' => 'nullable|string',
             'driver_id' => 'sometimes|nullable|exists:users,id',
+            'model' => 'sometimes|nullable|string',
+            'capacity' => 'sometimes|nullable|integer|min:1',
         ]);
 
         if (isset($data['last_lat'])) {

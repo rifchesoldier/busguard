@@ -33,6 +33,12 @@ class _AdminSchoolsScreenState extends State<AdminSchoolsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: BgColors.cream,
+      appBar: AppBar(
+        title: const Text('Gestion des écoles'),
+        backgroundColor: BgColors.ink,
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
@@ -99,11 +105,23 @@ class _SchoolTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(school.name, style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
-                Text('${school.city}${school.address != null ? ' · ${school.address}' : ''}',
-                    style: GoogleFonts.dmSans(fontSize: 12, color: BgColors.dusk.withValues(alpha: 0.7))),
-                if (school.availableClasses.isNotEmpty)
-                  Text('Classes : ${school.availableClasses.join(', ')}',
-                      style: GoogleFonts.dmSans(fontSize: 11, color: BgColors.sage)),
+                const SizedBox(height: 2),
+                Text(
+                  '${school.city}${school.address != null ? ' · ${school.address}' : ''}',
+                  style: GoogleFonts.dmSans(fontSize: 12, color: BgColors.dusk.withValues(alpha: 0.7)),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  school.availableClasses.isNotEmpty
+                      ? 'Classes : ${school.availableClasses.join(', ')}'
+                      : 'Classes : non renseignées',
+                  style: GoogleFonts.dmSans(
+                    fontSize: 11,
+                    color: school.availableClasses.isNotEmpty
+                        ? BgColors.sage
+                        : BgColors.dusk.withValues(alpha: 0.4),
+                  ),
+                ),
               ],
             ),
           ),

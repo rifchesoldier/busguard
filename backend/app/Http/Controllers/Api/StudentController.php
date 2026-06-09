@@ -71,8 +71,8 @@ class StudentController extends Controller
         abort_unless($request->user()->isAdmin(), 403);
 
         $data = $request->validate([
-            'assigned_bus_id' => 'required|exists:buses,id',
-            'assigned_stop_id' => 'required|exists:stops,id',
+            'assigned_bus_id'  => 'required|exists:buses,id',
+            'assigned_stop_id' => 'nullable|exists:stops,id',
         ]);
 
         $student->update($data);

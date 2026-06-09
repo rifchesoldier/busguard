@@ -26,7 +26,7 @@ class SchoolController extends Controller
             );
         }
 
-        return response()->json($query->with(['admin', 'classes', 'buses'])->get());
+        return response()->json($query->select('id', 'name', 'city', 'address', 'available_classes', 'is_active')->get());
     }
 
     public function store(Request $request): JsonResponse

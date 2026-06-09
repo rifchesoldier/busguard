@@ -33,6 +33,12 @@ class _AdminDriversScreenState extends State<AdminDriversScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: BgColors.cream,
+      appBar: AppBar(
+        title: const Text('Gestion des chauffeurs'),
+        backgroundColor: BgColors.ink,
+        foregroundColor: Colors.white,
+        elevation: 0,
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(

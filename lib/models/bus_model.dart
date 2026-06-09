@@ -41,8 +41,8 @@ class BusModel {
       status: _parseStatus(json['status'] as String? ?? 'idle'),
       position: json['last_lat'] != null
           ? BusPosition(
-              lat: (json['last_lat'] as num).toDouble(),
-              lng: (json['last_lng'] as num).toDouble(),
+              lat: double.tryParse(json['last_lat'].toString()) ?? 0.0,
+              lng: double.tryParse(json['last_lng'].toString()) ?? 0.0,
               timestamp: DateTime.tryParse(json['last_position_at']?.toString() ?? '') ?? DateTime.now(),
             )
           : null,

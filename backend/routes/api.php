@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\EtaController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\RouteController;
 use App\Http\Controllers\Api\SchoolController;
+use App\Http\Controllers\Api\StatsController;
 use App\Http\Controllers\Api\StudentController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
@@ -38,6 +39,7 @@ Route::prefix('v1')->group(function () {
 
         Route::get('/eta/{bus}', [EtaController::class, 'calculate']);
         Route::get('/directions/{bus}', [EtaController::class, 'directions']);
+        Route::get('/stats', [StatsController::class, 'index']);
         Route::post('/notifications/traffic', [NotificationController::class, 'trafficAlert']);
         Route::post('/notifications/attendance', [NotificationController::class, 'attendanceAlert']);
     });
