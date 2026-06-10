@@ -36,17 +36,27 @@ class _DriverAttendanceScreenState extends State<DriverAttendanceScreen> {
     final api = context.read<AuthService>().api;
     try {
       final buses = await api.myBuses();
-      if (buses.isEmpty) return;
-      final bus = buses.first;
-      final res = await api.getStudentsForBus(bus.id);
-      if (mounted) setState(() => _students = res);
-    } catch (_) {
+      if (buses.isEmpty) {
+        if (mounted) setState(() => _students = []);
+        return;
+      }
+      // Charger les élèves de tous les bus du chauffeur
+      final allStudents = <StudentModel>[];
+      for (final bus in buses) {
+        final students = await api.getStudentsForBus(bus.id);
+        allStudents.addAll(students);
+      }
+      if (mounted) setState(() => _students = allStudents);
+    } catch (e) {
+      if (mounted) setState(() => _students = []);
+      // Afficher l'erreur au lieu de données hardcodées
       if (mounted) {
-        setState(() {
-          _students = [
-            const StudentModel(id: '1', firstName: 'Aminata', lastName: 'Ndiaye', className: 'CM2 A', stopName: 'VDN Mermoz', busId: '1'),
-          ];
-        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur chargement : ${e.toString().replaceFirst('Exception: ', '')}'),
+            backgroundColor: BgColors.danger,
+          ),
+        );
       }
     }
   }
@@ -146,7 +156,28 @@ class _DriverAttendanceScreenState extends State<DriverAttendanceScreen> {
             ),
           ),
           Expanded(
-            child: ListView.builder(
+            child: _students.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.child_care_rounded, size: 56, color: BgColors.dusk.withValues(alpha: 0.3)),
+                        const SizedBox(height: 16),
+                        Text('Aucun élève assigné à ce bus',
+                            style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w600, color: BgColors.dusk)),
+                        const SizedBox(height: 8),
+                        Text('L\'administrateur doit affecter des élèves.',
+                            style: GoogleFonts.dmSans(color: BgColors.dusk.withValues(alpha: 0.5))),
+                        const SizedBox(height: 20),
+                        TextButton.icon(
+                          onPressed: _loadStudents,
+                          icon: const Icon(Icons.refresh, color: BgColors.terracotta),
+                          label: Text('Actualiser', style: GoogleFonts.outfit(color: BgColors.terracotta, fontWeight: FontWeight.w600)),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               itemCount: _students.length,
               itemBuilder: (_, i) {

@@ -10,28 +10,64 @@ class ParentAlertsScreen extends StatelessWidget {
   const ParentAlertsScreen({super.key});
 
   List<AlertModel> _buildAlerts(AuthService auth) {
-    final child = auth.children.isNotEmpty ? auth.children.first : null;
-    if (child == null) return [];
+    final children = auth.children;
+    if (children.isEmpty) return [];
 
-    return [
-      if (child.status == StudentStatus.absent)
-        AlertModel(
-          id: '1',
+    final alerts = <AlertModel>[];
+
+    for (final child in children) {
+      // Alerte absence
+      if (child.status == StudentStatus.absent) {
+        alerts.add(AlertModel(
+          id: 'absent_${child.id}',
           type: AlertType.absent,
           title: 'Absence signalée',
           message: '${child.firstName} a été signalé(e) absent(e) ce matin.',
-          createdAt: DateTime.now().subtract(const Duration(hours: 2)),
+          createdAt: DateTime.now().subtract(const Duration(hours: 1)),
           childName: child.firstName,
-        ),
-      AlertModel(
-        id: '2',
-        type: AlertType.info,
-        title: 'Affectation confirmée',
-        message: '${child.firstName} est affecté(e) au bus ${child.busMatricule ?? '—'}.',
-        createdAt: DateTime.now().subtract(const Duration(days: 1)),
-        childName: child.firstName,
-      ),
-    ];
+        ));
+      }
+
+      // Alerte affectation bus
+      if (child.busMatricule != null) {
+        alerts.add(AlertModel(
+          id: 'bus_${child.id}',
+          type: AlertType.info,
+          title: 'Affectation confirmée',
+          message: '${child.firstName} est affecté(e) au bus ${child.busMatricule}.',
+          createdAt: DateTime.now().subtract(const Duration(days: 1)),
+          childName: child.firstName,
+        ));
+      }
+
+      // Alerte statut "À bord"
+      if (child.status == StudentStatus.aBord) {
+        alerts.add(AlertModel(
+          id: 'aboard_${child.id}',
+          type: AlertType.info,
+          title: 'Embarquement confirmé',
+          message: '${child.firstName} est à bord du bus ${child.busMatricule ?? ''}.',
+          createdAt: DateTime.now().subtract(const Duration(minutes: 20)),
+          childName: child.firstName,
+        ));
+      }
+
+      // Alerte statut "Arrivé"
+      if (child.status == StudentStatus.arrive) {
+        alerts.add(AlertModel(
+          id: 'arrived_${child.id}',
+          type: AlertType.info,
+          title: 'Arrivée confirmée',
+          message: '${child.firstName} est arrivé(e) à l\'école.',
+          createdAt: DateTime.now().subtract(const Duration(minutes: 10)),
+          childName: child.firstName,
+        ));
+      }
+    }
+
+    // Trier par date décroissante
+    alerts.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return alerts;
   }
 
   @override

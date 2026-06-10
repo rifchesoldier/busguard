@@ -5,6 +5,8 @@ import '../../core/theme.dart';
 import '../../models/school_model.dart';
 import '../../services/auth_service.dart';
 
+const _kColor = Color(0xFF2D4A7A);
+
 class AdminSchoolsScreen extends StatefulWidget {
   const AdminSchoolsScreen({super.key});
   @override
@@ -43,18 +45,16 @@ class _AdminSchoolsScreenState extends State<AdminSchoolsScreen> {
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _load,
-              color: const Color(0xFF2D4A7A),
-              child: _schools.isEmpty
-                  ? _empty()
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(20),
-                      itemCount: _schools.length,
-                      itemBuilder: (_, i) => _SchoolTile(school: _schools[i], onDelete: _load),
-                    ),
+              color: _kColor,
+              child: _schools.isEmpty ? _empty() : ListView.builder(
+                padding: const EdgeInsets.all(20),
+                itemCount: _schools.length,
+                itemBuilder: (_, i) => _SchoolTile(school: _schools[i], onRefresh: _load),
+              ),
             ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showForm(context),
-        backgroundColor: const Color(0xFF2D4A7A),
+        backgroundColor: _kColor,
         icon: const Icon(Icons.add_rounded, color: Colors.white),
         label: Text('Nouvelle école', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w700)),
       ),
@@ -82,10 +82,12 @@ class _AdminSchoolsScreenState extends State<AdminSchoolsScreen> {
   }
 }
 
+// ── Tuile école ────────────────────────────────────────────────────────────────
+
 class _SchoolTile extends StatelessWidget {
   final SchoolModel school;
-  final VoidCallback onDelete;
-  const _SchoolTile({required this.school, required this.onDelete});
+  final VoidCallback onRefresh;
+  const _SchoolTile({required this.school, required this.onRefresh});
 
   @override
   Widget build(BuildContext context) {
@@ -96,8 +98,8 @@ class _SchoolTile extends StatelessWidget {
       child: Row(
         children: [
           CircleAvatar(
-            backgroundColor: const Color(0xFF2D4A7A).withValues(alpha: 0.12),
-            child: const Icon(Icons.school_rounded, color: Color(0xFF2D4A7A)),
+            backgroundColor: _kColor.withValues(alpha: 0.12),
+            child: const Icon(Icons.school_rounded, color: _kColor),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -117,21 +119,35 @@ class _SchoolTile extends StatelessWidget {
                       : 'Classes : non renseignées',
                   style: GoogleFonts.dmSans(
                     fontSize: 11,
-                    color: school.availableClasses.isNotEmpty
-                        ? BgColors.sage
-                        : BgColors.dusk.withValues(alpha: 0.4),
+                    color: school.availableClasses.isNotEmpty ? BgColors.sage : BgColors.dusk.withValues(alpha: 0.4),
                   ),
                 ),
               ],
             ),
           ),
+          // Bouton modifier
+          IconButton(
+            icon: const Icon(Icons.edit_rounded, color: BgColors.dusk),
+            tooltip: 'Modifier',
+            onPressed: () {
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                backgroundColor: Colors.transparent,
+                builder: (_) => _SchoolEditForm(school: school, onSaved: onRefresh),
+              );
+            },
+          ),
+          // Bouton supprimer
           IconButton(
             icon: const Icon(Icons.delete_outline, color: BgColors.danger),
+            tooltip: 'Supprimer',
             onPressed: () async {
               final ok = await showDialog<bool>(
                 context: context,
                 builder: (ctx) => AlertDialog(
                   title: Text('Supprimer cette école ?', style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
+                  content: Text('${school.name} sera supprimée.', style: GoogleFonts.dmSans()),
                   actions: [
                     TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
                     TextButton(onPressed: () => Navigator.pop(ctx, true),
@@ -142,7 +158,7 @@ class _SchoolTile extends StatelessWidget {
               if (ok == true && context.mounted) {
                 try {
                   await context.read<AuthService>().api.deleteSchool(school.id);
-                  onDelete();
+                  onRefresh();
                 } catch (e) {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -159,6 +175,8 @@ class _SchoolTile extends StatelessWidget {
   }
 }
 
+// ── Formulaire création ────────────────────────────────────────────────────────
+
 class _SchoolForm extends StatefulWidget {
   final VoidCallback onSaved;
   const _SchoolForm({required this.onSaved});
@@ -174,6 +192,9 @@ class _SchoolFormState extends State<_SchoolForm> {
   final _classesCtrl = TextEditingController(text: 'CP,CE1,CE2,CM1,CM2');
   bool _saving = false;
 
+  List<String> _parseClasses() =>
+      _classesCtrl.text.split(',').map((c) => c.trim()).where((c) => c.isNotEmpty).toList();
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
@@ -182,10 +203,89 @@ class _SchoolFormState extends State<_SchoolForm> {
             name: _name.text.trim(),
             city: _city.text.trim(),
             address: _address.text.trim().isEmpty ? null : _address.text.trim(),
+            availableClasses: _parseClasses(),
+          );
+      if (mounted) { Navigator.pop(context); widget.onSaved(); }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString().replaceFirst('Exception: ', '')), backgroundColor: BgColors.danger),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _buildSheet(
+      title: 'Enregistrer une école',
+      formKey: _formKey,
+      nameCtrl: _name,
+      cityCtrl: _city,
+      addressCtrl: _address,
+      classesCtrl: _classesCtrl,
+      saving: _saving,
+      onSave: _save,
+      buttonLabel: 'Enregistrer l\'école',
+    );
+  }
+}
+
+// ── Formulaire modification ────────────────────────────────────────────────────
+
+class _SchoolEditForm extends StatefulWidget {
+  final SchoolModel school;
+  final VoidCallback onSaved;
+  const _SchoolEditForm({required this.school, required this.onSaved});
+  @override
+  State<_SchoolEditForm> createState() => _SchoolEditFormState();
+}
+
+class _SchoolEditFormState extends State<_SchoolEditForm> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _name;
+  late final TextEditingController _city;
+  late final TextEditingController _address;
+  late final TextEditingController _classesCtrl;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _name = TextEditingController(text: widget.school.name);
+    _city = TextEditingController(text: widget.school.city);
+    _address = TextEditingController(text: widget.school.address ?? '');
+    _classesCtrl = TextEditingController(text: widget.school.availableClasses.join(', '));
+  }
+
+  @override
+  void dispose() {
+    _name.dispose(); _city.dispose(); _address.dispose(); _classesCtrl.dispose();
+    super.dispose();
+  }
+
+  List<String> _parseClasses() =>
+      _classesCtrl.text.split(',').map((c) => c.trim()).where((c) => c.isNotEmpty).toList();
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _saving = true);
+    try {
+      await context.read<AuthService>().api.updateSchool(
+            schoolId: widget.school.id,
+            name: _name.text.trim(),
+            city: _city.text.trim(),
+            address: _address.text.trim().isEmpty ? null : _address.text.trim(),
+            availableClasses: _parseClasses(),
           );
       if (mounted) {
         Navigator.pop(context);
         widget.onSaved();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('École mise à jour.'), backgroundColor: BgColors.success),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -200,57 +300,87 @@ class _SchoolFormState extends State<_SchoolForm> {
 
   @override
   Widget build(BuildContext context) {
+    return _buildSheet(
+      title: 'Modifier l\'école',
+      formKey: _formKey,
+      nameCtrl: _name,
+      cityCtrl: _city,
+      addressCtrl: _address,
+      classesCtrl: _classesCtrl,
+      saving: _saving,
+      onSave: _save,
+      buttonLabel: 'Enregistrer les modifications',
+    );
+  }
+}
+
+// ── Widget partagé ─────────────────────────────────────────────────────────────
+
+Widget _buildSheet({
+  required String title,
+  required GlobalKey<FormState> formKey,
+  required TextEditingController nameCtrl,
+  required TextEditingController cityCtrl,
+  required TextEditingController addressCtrl,
+  required TextEditingController classesCtrl,
+  required bool saving,
+  required VoidCallback onSave,
+  required String buttonLabel,
+}) {
+  return Builder(builder: (context) {
     return Container(
       padding: EdgeInsets.fromLTRB(24, 24, 24, MediaQuery.of(context).viewInsets.bottom + 24),
       decoration: const BoxDecoration(color: BgColors.cream, borderRadius: BorderRadius.vertical(top: Radius.circular(28))),
       child: Form(
-        key: _formKey,
+        key: formKey,
         child: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: BgColors.dusk.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(2)))),
+              Center(child: Container(width: 40, height: 4,
+                  decoration: BoxDecoration(color: BgColors.dusk.withValues(alpha: 0.2), borderRadius: BorderRadius.circular(2)))),
               const SizedBox(height: 20),
-              Text('Enregistrer une école', style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w800)),
+              Text(title, style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.w800)),
               const SizedBox(height: 20),
               TextFormField(
-                controller: _name,
+                controller: nameCtrl,
                 decoration: const InputDecoration(labelText: 'Nom de l\'école *', prefixIcon: Icon(Icons.school_rounded)),
                 validator: (v) => v == null || v.isEmpty ? 'Requis' : null,
                 textCapitalization: TextCapitalization.words,
               ),
               const SizedBox(height: 14),
               TextFormField(
-                controller: _city,
+                controller: cityCtrl,
                 decoration: const InputDecoration(labelText: 'Ville *', prefixIcon: Icon(Icons.location_city_rounded)),
                 validator: (v) => v == null || v.isEmpty ? 'Requis' : null,
               ),
               const SizedBox(height: 14),
               TextFormField(
-                controller: _address,
+                controller: addressCtrl,
                 decoration: const InputDecoration(labelText: 'Adresse', prefixIcon: Icon(Icons.map_rounded)),
               ),
               const SizedBox(height: 14),
               TextFormField(
-                controller: _classesCtrl,
+                controller: classesCtrl,
                 decoration: const InputDecoration(
                   labelText: 'Classes disponibles (séparées par virgule)',
                   prefixIcon: Icon(Icons.class_rounded),
-                  hintText: 'CP,CE1,CE2,CM1,CM2',
+                  hintText: 'CP, CE1, CE2, CM1, CM2',
+                  helperText: 'Exemple : CP, CE1, CE2, CM1, CM2',
                 ),
               ),
               const SizedBox(height: 28),
               ElevatedButton(
-                onPressed: _saving ? null : _save,
-                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF2D4A7A)),
-                child: _saving
+                onPressed: saving ? null : onSave,
+                style: ElevatedButton.styleFrom(backgroundColor: _kColor),
+                child: saving
                     ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : Text('Enregistrer l\'école', style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
+                    : Text(buttonLabel, style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
               ),
             ],
           ),
         ),
       ),
     );
-  }
+  });
 }

@@ -34,12 +34,14 @@ class SchoolController extends Controller
         $this->authorizeAdmin($request);
 
         $data = $request->validate([
-            'name' => 'required|string',
-            'city' => 'nullable|string',
-            'address' => 'nullable|string',
-            'lat' => 'nullable|numeric',
-            'lng' => 'nullable|numeric',
-            'admin_id' => 'nullable|exists:users,id',
+            'name'              => 'required|string',
+            'city'              => 'nullable|string',
+            'address'           => 'nullable|string',
+            'lat'               => 'nullable|numeric',
+            'lng'               => 'nullable|numeric',
+            'admin_id'          => 'nullable|exists:users,id',
+            'available_classes' => 'nullable|array',
+            'available_classes.*' => 'string',
         ]);
 
         $school = School::create($data);
@@ -56,10 +58,12 @@ class SchoolController extends Controller
     {
         $this->authorizeAdmin($request);
         $school->update($request->validate([
-            'name' => 'sometimes|string',
-            'city' => 'sometimes|string',
-            'address' => 'nullable|string',
-            'is_active' => 'sometimes|boolean',
+            'name'              => 'sometimes|string',
+            'city'              => 'sometimes|string',
+            'address'           => 'nullable|string',
+            'is_active'         => 'sometimes|boolean',
+            'available_classes' => 'nullable|array',
+            'available_classes.*' => 'string',
         ]));
 
         return response()->json($school);

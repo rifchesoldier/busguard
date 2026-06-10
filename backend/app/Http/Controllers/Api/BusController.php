@@ -19,7 +19,10 @@ class BusController extends Controller
         if ($user->role === 'admin') {
             $query->where('school_id', $user->school_id);
         } elseif ($user->role === 'driver') {
-            $query->whereHas('drivers', fn ($q) => $q->where('user_id', $user->id));
+            $query->where(function($q) use ($user) {
+                $q->where('driver_id', $user->id)
+                  ->orWhereHas('drivers', fn ($dq) => $dq->where('user_id', $user->id));
+            });
         }
         // superadmin → tous les bus
 

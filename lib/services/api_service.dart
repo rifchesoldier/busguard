@@ -272,6 +272,7 @@ class ApiService {
     double? lat,
     double? lng,
     String? adminId,
+    List<String>? availableClasses,
   }) async {
     final res = await http.post(
       Uri.parse('${AppConstants.apiBaseUrl}/schools'),
@@ -283,6 +284,28 @@ class ApiService {
         if (lat != null) 'lat': lat,
         if (lng != null) 'lng': lng,
         if (adminId != null) 'admin_id': adminId,
+        if (availableClasses != null) 'available_classes': availableClasses,
+      }),
+    );
+    _throwIfError(res);
+    return SchoolModel.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
+  }
+
+  Future<SchoolModel> updateSchool({
+    required String schoolId,
+    String? name,
+    String? city,
+    String? address,
+    List<String>? availableClasses,
+  }) async {
+    final res = await http.put(
+      Uri.parse('${AppConstants.apiBaseUrl}/schools/$schoolId'),
+      headers: _headers,
+      body: jsonEncode({
+        if (name != null) 'name': name,
+        if (city != null) 'city': city,
+        'address': address,
+        if (availableClasses != null) 'available_classes': availableClasses,
       }),
     );
     _throwIfError(res);
