@@ -11,6 +11,8 @@ class StudentModel {
   final String? stopName;
   final StudentStatus status;
   final String? photoUrl;
+  final double? schoolLat;
+  final double? schoolLng;
 
   const StudentModel({
     required this.id,
@@ -23,6 +25,8 @@ class StudentModel {
     this.stopName,
     this.status = StudentStatus.enAttente,
     this.photoUrl,
+    this.schoolLat,
+    this.schoolLng,
   });
 
   String get fullName => '$firstName $lastName';
@@ -39,6 +43,8 @@ class StudentModel {
       stopName: json['stop']?['name'] as String?,
       status: _parseStatus(json['current_status'] as String? ?? 'en_attente'),
       photoUrl: json['photo_url'] as String?,
+      schoolLat: double.tryParse(json['school']?['lat']?.toString() ?? ''),
+      schoolLng: double.tryParse(json['school']?['lng']?.toString() ?? ''),
     );
   }
 

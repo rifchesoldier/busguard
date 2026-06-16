@@ -15,7 +15,6 @@ import '../../widgets/status_badge.dart' show EtaCard;
 
 class ParentMapScreen extends StatefulWidget {
   const ParentMapScreen({super.key});
-
   @override
   State<ParentMapScreen> createState() => _ParentMapScreenState();
 }
@@ -30,9 +29,10 @@ class _ParentMapScreenState extends State<ParentMapScreen> {
   Timer? _etaTimer;
   int? _eta;
   bool _offline = false;
+  bool _routeLoading = false;
 
-  static const _schoolLatLng = LatLng(14.7392, -17.5123);
-  static const _dakarLatLng  = LatLng(AppConstants.dakarLat, AppConstants.dakarLng);
+  LatLng? _schoolLatLng;
+  static const _dakarLatLng = LatLng(AppConstants.dakarLat, AppConstants.dakarLng);
 
   Set<Marker> _markers = {};
   Set<Polyline> _polylines = {};
@@ -48,27 +48,37 @@ class _ParentMapScreenState extends State<ParentMapScreen> {
 
   void _init() {
     final auth = context.read<AuthService>();
-    _child = auth.children.isNotEmpty ? auth.children.first : null;
+    if (auth.children.isEmpty) return;
 
-    // Marqueur école toujours visible
-    _markers = {
-      Marker(
-        markerId: const MarkerId('school'),
-        position: _schoolLatLng,
-        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-        infoWindow: const InfoWindow(title: 'École'),
-      ),
-    };
+    try {
+      _child = auth.children.firstWhere((c) => c.busId != null);
+    } catch (_) {
+      _child = auth.children.first;
+    }
 
-    if (_child?.busId == null) return;
+    if (_child == null) return;
+
+    if (_child!.schoolLat != null && _child!.schoolLng != null) {
+      _schoolLatLng = LatLng(_child!.schoolLat!, _child!.schoolLng!);
+      // Marqueur école immédiat
+      setState(() {
+        _markers = {
+          Marker(
+            markerId: const MarkerId('school'),
+            position: _schoolLatLng!,
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+            infoWindow: InfoWindow(title: _child?.schoolName ?? 'École', snippet: 'Destination'),
+          ),
+        };
+      });
+    }
+
+    if (_child!.busId == null) return;
 
     _busSub = _firebase.watchBus(_child!.busId!).listen((bus) {
       if (!mounted || bus?.position == null) return;
       setState(() => _bus = bus);
       _updateMapOverlays(bus!);
-      _mapController?.animateCamera(
-        CameraUpdate.newLatLng(LatLng(bus!.position!.lat, bus.position!.lng)),
-      );
     });
 
     _etaTimer = Timer.periodic(const Duration(seconds: 30), (_) {
@@ -77,64 +87,86 @@ class _ParentMapScreenState extends State<ParentMapScreen> {
     _refreshEta(_child!.busId!);
   }
 
-  /// Appelle Google Directions via le backend (proxy) pour éviter CORS.
   Future<void> _updateMapOverlays(BusModel bus) async {
     final busPos = LatLng(bus.position!.lat, bus.position!.lng);
+    final destination = _schoolLatLng ?? _dakarLatLng;
 
-    // Marqueurs bus + école
-    final newMarkers = {
+    final newMarkers = <Marker>{
       Marker(
         markerId: const MarkerId('bus'),
         position: busPos,
         icon: BitmapDescriptor.defaultMarkerWithHue(
           bus.trafficAlert != null ? BitmapDescriptor.hueRed : BitmapDescriptor.hueAzure,
         ),
-        infoWindow: InfoWindow(
-          title: 'Bus ${bus.matricule}',
-          snippet: bus.statusLabel,
-        ),
+        infoWindow: InfoWindow(title: 'Bus ${bus.matricule}', snippet: bus.statusLabel),
+        zIndex: 2,
       ),
       Marker(
         markerId: const MarkerId('school'),
-        position: _schoolLatLng,
+        position: destination,
         icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
-        infoWindow: const InfoWindow(title: 'École'),
+        infoWindow: InfoWindow(title: _child?.schoolName ?? 'École', snippet: 'Destination'),
+        zIndex: 1,
       ),
     };
 
-    // Appel via backend Laravel → Google Directions (pas de CORS)
-    final token = context.read<AuthService>().user?.token;
-    List<LatLng>? routePoints;
-    if (token != null) {
-      routePoints = await DirectionsService.getRouteForBus(
-        busId: bus.id,
-        token: token,
-      );
-    }
+    if (mounted) setState(() { _routeLoading = true; _markers = newMarkers; });
 
-    // Fallback ligne droite si indisponible
-    final polylinePoints = (routePoints != null && routePoints.length > 1)
-        ? routePoints
-        : [busPos, _schoolLatLng];
+    // Trajet routier via proxy Laravel (évite CORS)
+    List<LatLng> polylinePoints = [busPos, destination];
+    try {
+      final token = context.read<AuthService>().user?.token;
+      if (token != null) {
+        final route = await DirectionsService.getRoute(
+          origin: busPos,
+          destination: destination,
+          token: token,
+        );
+        if (route != null && route.length > 1) polylinePoints = route;
+      }
+    } catch (_) {}
 
-    final newPolylines = {
-      Polyline(
-        polylineId: const PolylineId('route'),
-        points: polylinePoints,
-        color: BgColors.terracotta,
-        width: 5,
-        startCap: Cap.roundCap,
-        endCap: Cap.roundCap,
-        jointType: JointType.round,
-      ),
-    };
+    if (!mounted) return;
+
+    // Cadrage automatique
+    try {
+      final bounds = _boundsFromPoints([busPos, destination, ...polylinePoints]);
+      await _mapController?.animateCamera(CameraUpdate.newLatLngBounds(bounds, 80));
+    } catch (_) {}
 
     if (mounted) {
       setState(() {
         _markers = newMarkers;
-        _polylines = newPolylines;
+        _polylines = {
+          Polyline(
+            polylineId: const PolylineId('route'),
+            points: polylinePoints,
+            color: BgColors.terracotta,
+            width: 5,
+            startCap: Cap.roundCap,
+            endCap: Cap.roundCap,
+            jointType: JointType.round,
+            geodesic: true,
+          ),
+        };
+        _routeLoading = false;
       });
     }
+  }
+
+  LatLngBounds _boundsFromPoints(List<LatLng> points) {
+    double minLat = points.first.latitude, maxLat = points.first.latitude;
+    double minLng = points.first.longitude, maxLng = points.first.longitude;
+    for (final p in points) {
+      if (p.latitude < minLat) minLat = p.latitude;
+      if (p.latitude > maxLat) maxLat = p.latitude;
+      if (p.longitude < minLng) minLng = p.longitude;
+      if (p.longitude > maxLng) maxLng = p.longitude;
+    }
+    return LatLngBounds(
+      southwest: LatLng(minLat, minLng),
+      northeast: LatLng(maxLat, maxLng),
+    );
   }
 
   Future<void> _refreshEta(String busId) async {
@@ -156,27 +188,58 @@ class _ParentMapScreenState extends State<ParentMapScreen> {
     final pos = _bus?.position;
     final notStarted = _bus == null || _bus!.status == BusStatus.idle;
     final signalLost = _bus?.status == BusStatus.signalPerdu;
+    final initialTarget = _schoolLatLng ?? _dakarLatLng;
 
     return Scaffold(
       body: Stack(
         children: [
-          // ── Google Map ────────────────────────────────────────────────
+          // ── Google Map ──────────────────────────────────────────────────
           GoogleMap(
-            onMapCreated: (c) => _mapController = c,
-            initialCameraPosition: const CameraPosition(
-              target: _dakarLatLng,
-              zoom: 13,
-            ),
+            onMapCreated: (c) {
+              _mapController = c;
+              if (_schoolLatLng != null) {
+                c.animateCamera(CameraUpdate.newCameraPosition(
+                  CameraPosition(target: _schoolLatLng!, zoom: 14),
+                ));
+              }
+            },
+            initialCameraPosition: CameraPosition(target: initialTarget, zoom: 13),
             markers: _markers,
             polylines: _polylines,
             myLocationButtonEnabled: false,
-            zoomControlsEnabled: false,
+            zoomControlsEnabled: true,
             mapToolbarEnabled: false,
             compassEnabled: true,
             mapType: MapType.normal,
+            padding: const EdgeInsets.only(bottom: 180),
           ),
 
-          // ── Bannière hors-ligne ───────────────────────────────────────
+          // ── Indicateur calcul itinéraire ──────────────────────────────
+          if (_routeLoading)
+            Positioned(
+              top: 60, left: 0, right: 0,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: BgColors.ink.withValues(alpha: 0.85),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(width: 16, height: 16,
+                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)),
+                      const SizedBox(width: 10),
+                      Text('Calcul de l\'itinéraire…',
+                          style: GoogleFonts.dmSans(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+          // ── Bannière hors-ligne ──────────────────────────────────────
           if (_offline)
             Positioned(
               top: 0, left: 0, right: 0,
@@ -184,43 +247,29 @@ class _ParentMapScreenState extends State<ParentMapScreen> {
                 color: BgColors.gold,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-                  child: Text(
-                    'Hors-ligne — données potentiellement obsolètes',
-                    style: GoogleFonts.dmSans(fontWeight: FontWeight.w600, color: BgColors.ink),
-                    textAlign: TextAlign.center,
-                  ),
+                  child: Text('Hors-ligne — données potentiellement obsolètes',
+                      style: GoogleFonts.dmSans(fontWeight: FontWeight.w600, color: BgColors.ink),
+                      textAlign: TextAlign.center),
                 ),
               ),
             ),
 
-          // ── Panneau info bas ──────────────────────────────────────────
+          // ── Panneau info bas ─────────────────────────────────────────
           Positioned(
             left: 20, right: 20, bottom: 24,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (notStarted)
-                  _InfoPanel(
-                    icon: Icons.hourglass_empty_rounded,
-                    title: 'Le ramassage n\'a pas encore commencé',
-                    subtitle: child?.busMatricule != null
-                        ? 'Bus ${child!.busMatricule} · Départ prévu 07:00'
-                        : 'Bus non assigné',
-                  )
-                else if (child?.status == StudentStatus.absent)
-                  const _InfoPanel(
-                    icon: Icons.person_off_rounded,
-                    title: 'Votre enfant a été signalé absent ce matin',
-                    subtitle: 'Contactez l\'école si nécessaire',
-                    color: BgColors.danger,
-                  )
+                if (child == null)
+                  const _InfoPanel(icon: Icons.child_care_rounded, title: 'Aucun enfant enregistré', subtitle: 'Inscrivez votre enfant dans l\'onglet Enfants')
+                else if (child.busId == null)
+                  _InfoPanel(icon: Icons.directions_bus_outlined, title: 'Bus non encore assigné', subtitle: '${child.firstName} attend une affectation par l\'administrateur')
+                else if (notStarted)
+                  _InfoPanel(icon: Icons.hourglass_empty_rounded, title: 'Le ramassage n\'a pas encore commencé', subtitle: 'Bus ${child.busMatricule ?? child.busId} · Départ prévu 07:00')
+                else if (child.status == StudentStatus.absent)
+                  const _InfoPanel(icon: Icons.person_off_rounded, title: 'Votre enfant a été signalé absent ce matin', subtitle: 'Contactez l\'école si nécessaire', color: BgColors.danger)
                 else if (signalLost)
-                  _InfoPanel(
-                    icon: Icons.gps_off_rounded,
-                    title: 'Signal GPS temporairement perdu',
-                    subtitle: 'Dernière position : ${pos != null ? _formatTime(pos.timestamp) : '—'}',
-                    color: BgColors.danger,
-                  )
+                  _InfoPanel(icon: Icons.gps_off_rounded, title: 'Signal GPS temporairement perdu', subtitle: 'Dernière position : ${pos != null ? _formatTime(pos.timestamp) : '—'}', color: BgColors.danger)
                 else ...[
                   EtaCard(minutes: _eta, offline: signalLost),
                   const SizedBox(height: 12),
@@ -231,21 +280,17 @@ class _ParentMapScreenState extends State<ParentMapScreen> {
                       children: [
                         CircleAvatar(
                           backgroundColor: BgColors.terracotta.withValues(alpha: 0.15),
-                          child: Text(
-                            child?.firstName[0] ?? '?',
-                            style: GoogleFonts.outfit(fontWeight: FontWeight.w700, color: BgColors.terracotta),
-                          ),
+                          child: Text(child.firstName[0], style: GoogleFonts.outfit(fontWeight: FontWeight.w700, color: BgColors.terracotta)),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(child?.fullName ?? '', style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
-                              Text(
-                                'À bord · Bus ${_bus?.matricule ?? ''}',
-                                style: GoogleFonts.dmSans(fontSize: 13, color: BgColors.sage),
-                              ),
+                              Text(child.fullName, style: GoogleFonts.outfit(fontWeight: FontWeight.w700)),
+                              Text('À bord · Bus ${_bus?.matricule ?? ''}', style: GoogleFonts.dmSans(fontSize: 13, color: BgColors.sage)),
+                              if (child.schoolName != null)
+                                Text('→ ${child.schoolName}', style: GoogleFonts.dmSans(fontSize: 12, color: BgColors.dusk.withValues(alpha: 0.6))),
                             ],
                           ),
                         ),
@@ -267,20 +312,12 @@ class _ParentMapScreenState extends State<ParentMapScreen> {
       '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
 }
 
-// ── Widgets ───────────────────────────────────────────────────────────────────
-
 class _InfoPanel extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
   final Color color;
-
-  const _InfoPanel({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    this.color = BgColors.ink,
-  });
+  const _InfoPanel({required this.icon, required this.title, required this.subtitle, this.color = BgColors.ink});
 
   @override
   Widget build(BuildContext context) {
@@ -295,7 +332,7 @@ class _InfoPanel extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 16)),
+                Text(title, style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 15)),
                 const SizedBox(height: 4),
                 Text(subtitle, style: GoogleFonts.dmSans(fontSize: 13, color: BgColors.dusk.withValues(alpha: 0.7))),
               ],

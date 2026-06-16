@@ -9,6 +9,44 @@ use Illuminate\Support\Facades\Http;
 
 class EtaController extends Controller
 {
+    public function route(): JsonResponse
+    {
+        $lat1 = request('origin_lat');
+        $lng1 = request('origin_lng');
+        $lat2 = request('dest_lat');
+        $lng2 = request('dest_lng');
+
+        if (! $lat1 || ! $lng1 || ! $lat2 || ! $lng2) {
+            return response()->json(['error' => 'Coordonnées manquantes.'], 422);
+        }
+
+        $apiKey = config('services.google_maps.key');
+        if (! $apiKey) {
+            return response()->json(['error' => 'Clé API non configurée.'], 500);
+        }
+
+        $response = Http::get('https://maps.googleapis.com/maps/api/directions/json', [
+            'origin'      => "{$lat1},{$lng1}",
+            'destination' => "{$lat2},{$lng2}",
+            'mode'        => 'driving',
+            'language'    => 'fr',
+            'key'         => $apiKey,
+        ]);
+
+        $data = $response->json();
+
+        if (($data['status'] ?? '') !== 'OK') {
+            return response()->json(['error' => $data['status'] ?? 'Directions non disponibles.'], 422);
+        }
+
+        $overviewPolyline = $data['routes'][0]['overview_polyline']['points'] ?? null;
+
+        return response()->json([
+            'polyline' => $overviewPolyline,
+            'summary'  => $data['routes'][0]['summary'] ?? null,
+        ]);
+    }
+
     public function directions(Bus $bus): JsonResponse
     {
         if (! $bus->last_lat || ! $bus->last_lng) {

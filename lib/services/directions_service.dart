@@ -3,28 +3,34 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import '../core/constants.dart';
 
-/// Récupère l'itinéraire réel via le backend Laravel (proxy Google Directions).
-/// Le backend appelle Google côté serveur → pas de problème CORS.
+/// Récupère l'itinéraire routier réel via le proxy Laravel.
+/// Le backend appelle Google Directions côté serveur → aucun problème CORS.
 class DirectionsService {
-  /// Retourne les points décodés de la polyline ou null en cas d'échec.
-  static Future<List<LatLng>?> getRouteForBus({
-    required String busId,
+  static Future<List<LatLng>?> getRoute({
+    required LatLng origin,
+    required LatLng destination,
     required String token,
   }) async {
     try {
-      final res = await http.get(
-        Uri.parse('${AppConstants.apiBaseUrl}/directions/$busId'),
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': 'Bearer $token',
-        },
-      );
+      final uri = Uri.parse(
+        '${AppConstants.apiBaseUrl}/directions/route/points',
+      ).replace(queryParameters: {
+        'origin_lat': origin.latitude.toString(),
+        'origin_lng': origin.longitude.toString(),
+        'dest_lat': destination.latitude.toString(),
+        'dest_lng': destination.longitude.toString(),
+      });
+
+      final res = await http.get(uri, headers: {
+        'Accept': 'application/json',
+        'Authorization': 'Bearer $token',
+      }).timeout(const Duration(seconds: 10));
 
       if (res.statusCode != 200) return null;
 
       final data = jsonDecode(res.body) as Map<String, dynamic>;
       final encoded = data['polyline'] as String?;
-      if (encoded == null) return null;
+      if (encoded == null || encoded.isEmpty) return null;
 
       return _decodePolyline(encoded);
     } catch (_) {
@@ -32,7 +38,7 @@ class DirectionsService {
     }
   }
 
-  /// Décode une polyline encodée Google en liste de LatLng.
+  /// Décode une Google Encoded Polyline en liste de LatLng.
   static List<LatLng> _decodePolyline(String encoded) {
     final points = <LatLng>[];
     int index = 0;

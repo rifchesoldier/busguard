@@ -31,7 +31,11 @@
 
   <title>busguard</title>
   <link rel="manifest" href="manifest.json">
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBcr0SBSOBX7V3-0jMKpWat2Uka7tYqxNw"></script>
+  <script>
+    // Callback requis par google_maps_flutter web
+    function initMap() {}
+  </script>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBcr0SBSOBX7V3-0jMKpWat2Uka7tYqxNw&callback=initMap&v=weekly" defer></script>
 </head>
 <body>
   <!--

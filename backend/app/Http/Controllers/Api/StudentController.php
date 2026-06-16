@@ -23,7 +23,7 @@ class StudentController extends Controller
     public function myChildren(Request $request): JsonResponse
     {
         $children = $request->user()->children()
-            ->with(['bus', 'stop', 'school'])
+            ->with(['bus', 'stop', 'school:id,name,lat,lng'])
             ->where('is_active', true)
             ->get();
 
