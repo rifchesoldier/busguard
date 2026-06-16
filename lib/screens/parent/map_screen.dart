@@ -112,8 +112,9 @@ class _ParentMapScreenState extends State<ParentMapScreen> {
 
     if (mounted) setState(() { _routeLoading = true; _markers = newMarkers; });
 
-    // Trajet routier via proxy Laravel (évite CORS)
-    List<LatLng> polylinePoints = [busPos, destination];
+    // Trajet routier : proxy Laravel en priorité, sinon Google Directions direct
+    List<LatLng> polylinePoints = [];
+    bool routeFailed = false;
     try {
       final token = context.read<AuthService>().user?.token;
       if (token != null) {
@@ -122,9 +123,23 @@ class _ParentMapScreenState extends State<ParentMapScreen> {
           destination: destination,
           token: token,
         );
-        if (route != null && route.length > 1) polylinePoints = route;
+        if (route != null && route.length > 2) {
+          polylinePoints = route;
+        } else {
+          routeFailed = true;
+        }
+      } else {
+        routeFailed = true;
       }
-    } catch (_) {}
+    } catch (_) {
+      routeFailed = true;
+    }
+
+    // Si les deux services ont échoué, on trace une ligne droite en pointillés
+    // pour indiquer que le trajet réel n'a pas pu être chargé
+    if (routeFailed || polylinePoints.length <= 2) {
+      polylinePoints = [busPos, destination];
+    }
 
     if (!mounted) return;
 
@@ -141,12 +156,15 @@ class _ParentMapScreenState extends State<ParentMapScreen> {
           Polyline(
             polylineId: const PolylineId('route'),
             points: polylinePoints,
-            color: BgColors.terracotta,
-            width: 5,
+            color: routeFailed ? BgColors.dusk.withValues(alpha: 0.5) : BgColors.terracotta,
+            width: routeFailed ? 3 : 5,
             startCap: Cap.roundCap,
             endCap: Cap.roundCap,
             jointType: JointType.round,
             geodesic: true,
+            patterns: routeFailed
+                ? [PatternItem.dash(20), PatternItem.gap(10)]
+                : [],
           ),
         };
         _routeLoading = false;
