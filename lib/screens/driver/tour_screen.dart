@@ -59,6 +59,7 @@ class _DriverTourScreenState extends State<DriverTourScreen> {
 
     _gps.startTracking(
       (pos) async {
+        // Firebase → temps réel pour les parents
         await _firebase.updateBusPosition(
           busId: bus.id,
           lat: pos.latitude,
@@ -66,6 +67,12 @@ class _DriverTourScreenState extends State<DriverTourScreen> {
           driverId: auth.user!.id,
           driverName: auth.user!.name,
           matricule: bus.matricule,
+        );
+        // Laravel → persistance GPS + ETA/Directions
+        await auth.api.pushDriverPosition(
+          busId: bus.id,
+          lat: pos.latitude,
+          lng: pos.longitude,
         );
         if (mounted) setState(() => _signalLost = false);
       },
@@ -84,6 +91,13 @@ class _DriverTourScreenState extends State<DriverTourScreen> {
         driverId: auth.user!.id,
         driverName: auth.user!.name,
         matricule: bus.matricule,
+        status: _signalLost ? 'signal_perdu' : 'en_route',
+      );
+      // Sync Laravel aussi (pour ETA côté proxy Directions)
+      await auth.api.pushDriverPosition(
+        busId: bus.id,
+        lat: pos.latitude,
+        lng: pos.longitude,
         status: _signalLost ? 'signal_perdu' : 'en_route',
       );
     });

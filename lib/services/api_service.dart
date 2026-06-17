@@ -226,6 +226,24 @@ class ApiService {
     return BusModel.fromJson(jsonDecode(res.body) as Map<String, dynamic>);
   }
 
+  /// Envoie la position GPS du chauffeur au backend Laravel.
+  /// Endpoint léger dédié — plus rapide que `updateBus()` générique.
+  Future<void> pushDriverPosition({
+    required String busId,
+    required double lat,
+    required double lng,
+    String status = 'en_route',
+  }) async {
+    try {
+      await http.post(
+        Uri.parse('${AppConstants.apiBaseUrl}/buses/$busId/position'),
+        headers: _headers,
+        body: jsonEncode({'lat': lat, 'lng': lng, 'status': status}),
+      ).timeout(const Duration(seconds: 5));
+      // On ignore les erreurs réseau transitoires pour ne pas bloquer le GPS
+    } catch (_) {}
+  }
+
   Future<void> deleteBus(String busId) async {
     final res = await http.delete(
       Uri.parse('${AppConstants.apiBaseUrl}/buses/$busId'),

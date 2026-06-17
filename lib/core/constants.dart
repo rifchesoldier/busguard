@@ -2,13 +2,13 @@ class AppConstants {
   static const String appName = 'BusGuard';
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://127.0.0.1:8000/api/v1',
+    defaultValue: 'http://192.168.1.25:8000/api/v1',
   );
 
-  /// Clé Google Maps utilisée pour le fallback Directions API côté client.
-  /// Remplace cette valeur par ta vraie clé (ou injecte-la via --dart-define).
+  /// Clé Google Maps — injectée via --dart-define=GOOGLE_MAPS_KEY=...
+  /// ou utilisée directement comme constante pour le développement.
   static const String googleMapsApiKey = String.fromEnvironment(
-    'AIzaSyBcr0SBSOBX7V3-0jMKpWat2Uka7tYqxNw',
+    'GOOGLE_MAPS_KEY',
     defaultValue: 'AIzaSyBcr0SBSOBX7V3-0jMKpWat2Uka7tYqxNw',
   );
 

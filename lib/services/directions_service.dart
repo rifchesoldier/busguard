@@ -80,7 +80,10 @@ class DirectionsService {
       }).timeout(const Duration(seconds: 10));
 
       debugPrint('[Directions] Proxy status: ${res.statusCode}');
-      if (res.statusCode != 200) return null;
+      if (res.statusCode != 200) {
+        debugPrint('[Directions] Proxy body: ${res.body}');
+        return null;
+      }
 
       final data = jsonDecode(res.body) as Map<String, dynamic>;
       final encoded = data['polyline'] as String?;
@@ -103,7 +106,7 @@ class DirectionsService {
   }) async {
     try {
       final key = AppConstants.googleMapsApiKey;
-      if (key.isEmpty || key == 'REMPLACE_PAR_TA_CLE_GOOGLE_MAPS') {
+      if (key.isEmpty) {
         debugPrint('[Directions] Clé Google Maps non configurée');
         return null;
       }

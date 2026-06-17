@@ -25,6 +25,7 @@ Route::prefix('v1')->group(function () {
 
         Route::apiResource('schools', SchoolController::class);
         Route::apiResource('buses', BusController::class);
+        Route::post('/buses/{bus}/position', [BusController::class, 'updatePosition']);
         Route::apiResource('routes', RouteController::class);
         Route::apiResource('students', StudentController::class);
         Route::apiResource('users', UserController::class);

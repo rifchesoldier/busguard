@@ -55,6 +55,37 @@ class BusController extends Controller
         return response()->json($bus->load(['driver', 'routes.stops', 'students']));
     }
 
+    public function updatePosition(Request $request, Bus $bus): JsonResponse
+    {
+        // Seul le chauffeur assigné à ce bus peut mettre à jour sa position
+        $user = $request->user();
+        $isAssigned = $user->id === $bus->driver_id
+            || $bus->drivers()->where('user_id', $user->id)->exists();
+
+        abort_unless($isAssigned || $user->isAdmin(), 403, 'Non autorisé à mettre à jour ce bus.');
+
+        $data = $request->validate([
+            'lat'    => 'required|numeric|between:-90,90',
+            'lng'    => 'required|numeric|between:-180,180',
+            'status' => 'sometimes|in:en_route,idle,arrived,signal_perdu',
+        ]);
+
+        $bus->update([
+            'last_lat'         => $data['lat'],
+            'last_lng'         => $data['lng'],
+            'last_position_at' => now(),
+            'status'           => $data['status'] ?? 'en_route',
+        ]);
+
+        // Réponse légère — le client n'a pas besoin de tout le modèle
+        return response()->json([
+            'ok'  => true,
+            'lat' => $data['lat'],
+            'lng' => $data['lng'],
+            'ts'  => now()->toISOString(),
+        ]);
+    }
+
     public function update(Request $request, Bus $bus): JsonResponse
     {
         abort_unless($request->user()->isAdmin() || $request->user()->id === $bus->driver_id, 403);
