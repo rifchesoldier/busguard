@@ -39,8 +39,7 @@ Admin web : http://localhost:8000/admin/login
 **Comptes démo :**
 | Rôle | Email | Mot de passe |
 |------|-------|--------------|
-| Super Admin | admin@busguard.sn | BusGuard2024! |
-| Admin École | ecole@busguard.sn | BusGuard2024! |
+| Admin École | admin@busguard.sn | BusGuard2024! |
 | Chauffeur | chauffeur@busguard.sn | BusGuard2024! |
 | Parent | parent@busguard.sn | BusGuard2024! |
 
@@ -48,10 +47,10 @@ Admin web : http://localhost:8000/admin/login
 
 ```bash
 flutter pub get
-flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000/api/v1
+flutter run --dart-define=API_BASE_URL=http://127.0.0.1:8000/api/v1
 ```
 
-> Sur appareil physique, remplacez `10.0.2.2` par l'IP de votre machine.
+> Sur appareil physique, remplacez `127.0.0.1` par l'IP de votre machine. Ou bien vous pouvez le lancer sur votre machine physique
 
 ### Firebase (production)
 
