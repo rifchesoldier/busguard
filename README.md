@@ -39,7 +39,8 @@ Admin web : http://localhost:8000/admin/login
 **Comptes démo :**
 | Rôle | Email | Mot de passe |
 |------|-------|--------------|
-| Admin École | admin@busguard.sn | BusGuard2024! |
+| Super Admin | admin@busguard.sn | BusGuard2024! |
+| Admin École | ecole@busguard.sn | BusGuard2024! |
 | Chauffeur | chauffeur@busguard.sn | BusGuard2024! |
 | Parent | parent@busguard.sn | BusGuard2024! |
 
